@@ -7,20 +7,7 @@ from torch import nn
 from torch.distributions import transforms
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from nets.Wang import *
-from nets.Wang_DS import *
-from nets.Wang_DS_Dropout import *
-from nets.Wang_DS_RGB import *
-from nets.Wang_Normal_RGB import *
-from nets.Wang_Normal_RGB_CNN import * #新网络前部分卷积神经网络
-from nets.Wang_DS_RGB_Dropout import *
-#from nets.Wang_DS_ViT_RGB import *
-from nets.Wang_Normal_ViT_RGB import *
-from nets.Wang_Normal_RGB_10864 import *
-from nets.Wang_Normal_RGB_Deep_10864 import *
-from nets.Wang_Normal_20RGB import *
-from nets.Wang_Normal_20RGB_V2 import *
-from nets.DenseModel import *
+from nets.CWT_AlexNet import *
 from utils import read_split_data, plot_data_loader_image
 from my_dataset import MyDataSet
 import time
@@ -29,7 +16,7 @@ import time
 #需要设置cuda的数据有: 数据，模型，损失函数
 
 save_epoch=20 #模型保存迭代次数间隔-10次保存一次
-Resume = True #设置为True是继续之前的训练 False为从零开始
+Resume = False #设置为True是继续之前的训练 False为从零开始
 path_checkpoint = ".\models\wang_Normal_ViT_RGB_UiForest_1000.pth" #模型路径
 
 #定义训练的设备
@@ -37,7 +24,7 @@ device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("using {} device.".format(device))
 #准备数据集
 #加载自制数据集
-root = ".\dataset/0_snr_6_cut8"  # 数据集所在根目录
+root = ".\dataset/0"  # 数据集所在根目录
 train_images_path, train_images_label, val_images_path, val_images_label = read_split_data(root)
 
 data_transform = {
@@ -67,27 +54,9 @@ test_dataloader = torch.utils.data.DataLoader(test_data_set,
                                            shuffle=True,
                                            num_workers=0,
                                            collate_fn=test_data_set.collate_fn)
-#plot_data_loader_image(train_dataloader)
-
-# #加载网络数据集
-# train_dataloader=DataLoader(train_data,batch_size=64)
-# test_dataloader=DataLoader(test_data,batch_size=64)
 
 #引入创新好的神经网络
-#wang=Wang() #正常普通卷积网络
-#wang=Wang_DS() #深度可分离卷积网络
-#wang=Wang_DS_Dropout() #深度可分离卷积网络-单通道-含Dropout层
-#wang=Wang_DS_RGB() #深度可分离卷积网络-RGB三通道
-#wang=Wang_DS_RGB_Dropout() #深度可分离卷积网络-RGB三通道-含Dropout层
-#wang=densenet169()
-wang=VisionTransformer()
-#wang=Wang_Normal_RGB()
-#wang=Wang_Normal_RGB_CNN() #新网络前部分卷积神经网络
-#wang=Wang_Normal_RGB_10864()
-#wang=Wang_Normal_RGB_Deep_10864()
-#wang=Wang_Normal_20RGB()
-#wang=Wang_Normal_20RGB_V2()
-
+wang=CWT_AlexNet()
 
 #对已训练好的模型进行微调
 if Resume:
@@ -102,13 +71,13 @@ loss_fn=nn.CrossEntropyLoss()
 loss_fn=loss_fn.to(device) #将损失函数加载到cuda上训练
 
 #定义优化器
-learing_rate=1e-3 #学习速率
-optimizer=torch.optim.SGD(wang.parameters(),lr=learing_rate)
+learing_rate=1e-2 #学习速率
+optimizer=torch.optim.SGD(wang.parameters(),lr=learing_rate,momentum=0.9)
 
 #设置训练网络的一些参数
 total_train_step=0 #记录训练的次数
 total_test_step=0 #记录测试的次数
-epoch=360 #训练的轮数
+epoch=1000 #训练的轮数
 
 #添加tensorboard
 writer=SummaryWriter("logs",flush_secs=5)
@@ -159,7 +128,7 @@ for i in range(epoch):
     if (i+1) % save_epoch == 0:
         torch.save(wang,filepath) #保存训练好的模型
     if(i>60): #若迭代次数大于60则降低学习率
-        learing_rate = 1e-4  # 学习速率
+        learing_rate = 1e-3  # 学习速率
 
 writer.close() #关闭tensorboard
 
